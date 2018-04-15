@@ -3,4 +3,4 @@
 	filemode = true
 	bare = true
 [remote "origin"]
-	url = /home/james/git/AEP/blank_repo
+	url = /home/james/git/AEP/base_repo

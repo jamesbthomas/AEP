@@ -1,91 +1,75 @@
 #!/bin/bash
 # Bash script to install all the necessary components of the gitweb server
 
+# CD to the source directory
+source_dir=$(cd -P -- "$(dirname -- "$0")" && pwd -P)
+
+# Remove other keys from the keys directory
+rm -f ./keys/*
+
 # Ensure we can run sudo without entering the root password
-sudo echo " -- Installing <GitWeb> Server and Repo -- "
-echo "Running the uninstall script . . ."
-./uninstall.sh > /dev/null
-echo "  . . . done!"
-echo "Installing OpenSSH Server . . ."
+sudo echo " -- Installing <GitWeb> Container -- "
+
+echo "Installing necessary packages . . ."
+echo "  . . . docker"
+sudo apt-get install docker -y > /dev/null
+echo "  . . . openssh-server"
 sudo apt-get install openssh-server -y > /dev/null
-echo "  . . . done!"
+echo "done!"
 
-# Capture the user name of the person who ran this script and the directory
-run_user=$USER
-run_dir=$(pwd)
-
-# Create a user for the server and an ssh directory for it
-# gitweb default password is gitweb
-echo "Creating user gitweb with default password 'empiredidnothingwrong' . . . "
-sudo adduser gitweb --gecos "gitweb,none,none,none" --disabled-password > /dev/null
-echo "gitweb:empiredidnothingwrong" | sudo chpasswd > /dev/null
-echo -e "\tchanging default shell to git . . . "
-sudo chsh gitweb -s $(which git-shell)
-echo "  . . . done!"
-echo gitweb | sudo -u gitweb -S mkdir /home/gitweb/.ssh
-sudo -u gitweb chmod 700 /home/gitweb/.ssh
-sudo -u gitweb touch /home/gitweb/.ssh/authorized_keys
-sudo -u gitweb chmod 600 /home/gitweb/.ssh/authorized_keys
-
-# Add the SSH keys of the user who ran this script to the authorized_keys file
-for pub in $(ls /home/$run_user/.ssh/*.pub)
-do
-	echo $(cat $pub) | sudo -u gitweb tee -a /home/gitweb/.ssh/authorized_keys > /dev/null
-done
-
-# Create the remote repository
-echo "Creating gitweb repo in /srv/git/gitweb.git . . . "
-sudo mkdir /srv/git
-sudo mkdir /srv/git/gitweb.git
-cd /srv/git/gitweb.git
-sudo chown --recursive gitweb /srv/git/gitweb.git
-echo -e "\tdirectories made . . . "
-sudo -u gitweb git init --bare > /dev/null
-echo "  . . . repo created!"
-
-# Put a readme into the repo that has instructions for how to use gitweb
-echo "Creating initial readme and testing functionality. . . "
-cd $run_dir
-mkdir ./test_dir
-cd ./test_dir
-git init > /dev/null
-echo "# GitWeb Script Execution Server" > README.md
-echo "The GitWeb server takes input scripts using standard git processes, executes them, and services the results in a webpage on port 443." >> README.md
-echo "## Usage" >> README.md
-echo "In order to have the server execute your scripts, you need to write your script, push it to the server, and open a webpage to wherever the GitWeb server is hosted on port 443." >> README.md
-echo "A sample workflow to cat /etc/passwd is included below: " >> README.md
-echo "\`\`\`" >> README.md
-echo "echo \"cat /etc/passwd\" > script.sh" >> README.md
-echo "git add script.sh" >> README.md
-echo "git commit -m <commit message>" >> README.md
-echo "git push" >> README.md
-echo "wget <server>:443" >> README.md
-echo "\`\`\`" >> README.md
-echo "The file wget returns will contain the results of the script." >> README.md
-echo "## Note" >> README.md
-echo "Be sure to issue a \`git pull\` before creating your script to avoid conflicts on the server side." >> README.md
-cat README.md > ../gitweb_readme.md
-
-echo -e "\tTesting server functionality . . . "
-git add .
-git commit -m "initial commit" > /dev/null
-echo "gitweb\n" | ssh -o StrictHostKeyChecking=no gitweb@127.0.0.1 &> /dev/null
-git remote add origin gitweb@127.0.0.1:/srv/git/gitweb.git/ &> /dev/null
-git push --set-upstream origin master &> /dev/null
-cd ..
-rm -rf ./test_dir
-git clone gitweb@127.0.0.1:/srv/git/gitweb.git &>/dev/null
-if [ $(diff gitweb/README.md gitweb_readme.md | wc -l) -ne 0 ]
+echo "Checking for required files . . . "
+if [ ! -d base_repo ];
 then
-	echo "ERROR - repo README does not match"
+	echo "ERROR - FATAL - Base gitweb repo source directory base_repo does not exist"
+	echo "Pull from main project to resolve"
+	exit
+elif [ ! -d keys  ];
+then
+	echo "  . . . creating keys directory"
+	mkdir keys
+elif [ ! -d gitweb.git ];
+then
+	echo "  . . . creating base repo from source directory"
+	git clone --bare base_repo gitweb.git > /dev/null
+elif [ ! -f Dockerfile ];
+then
+	echo "ERROR - FATAL - Dockerfile is missing"
+	echo "Pull from main project to resolve"
+	exit
+elif [ ! -f startup.sh ];
+then
+	echo "ERROR - FATAL - image startup script missing"
+	echo "Pull from  main project to resolve"
+	exit
 else
-	echo "  . . . Success!"
+	echo "  . . . all present!"
 fi
+echo "done!"
 
-# Clean up
-echo "Cleaning up the testing documents . . . "
-#rm -f gitweb_readme.md
-rm -rf gitweb
-ssh-keygen -R 127.0.0.1 > /dev/null
-rm -f /home/$run_user/.ssh/known_hosts.old
-echo "Ready!"
+echo "Copying SSH keys to enable access to the container . . ."
+for pub in $(ls ~/.ssh/*.pub);
+do
+	cp $pub ./keys
+	echo "  . . . "$pub
+done
+echo "done!"
+
+echo "Creating and backgrounding container . . . "
+if [ $(docker image list | grep gitweb | wc -l) -ne 0 ];
+then
+	echo "  . . . cleaning old images"
+	docker container stop gitweb > /dev/null
+	docker system prune -a -f > /dev/null
+fi
+echo "  . . . building image"
+docker build . -t gitweb > /dev/null
+echo "  . . . starting the container"
+docker run --name gitweb -p 22:2222 -p 443:4443 -v $source_dir/keys:/gitweb/keys gitweb > /dev/null &
+sleep 1
+echo "done!"
+
+echo " All set! "
+echo "To close the container, enter \`docker container stop gitweb\`"
+echo "To restart the container, enter \`docker run gitweb\` after closing it"
+echo "To rebuild the container, rerun this script"
+echo "To remove previous versions, enter \`docker system prune -a\`"
