@@ -30,7 +30,7 @@ then
 elif [ ! -d gitweb.git ];
 then
 	echo "  . . . creating base repo from source directory"
-	git clone --bare base_repo gitweb.git > /dev/null
+	git clone --bare base_repo gitweb.git &> /dev/null
 elif [ ! -f Dockerfile ];
 then
 	echo "ERROR - FATAL - Dockerfile is missing"
