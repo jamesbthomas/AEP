@@ -38,7 +38,7 @@ then
 	git add . > /dev/null
 	git commit -m "initial commit" > /dev/null
 	cd ..
-	git clone base_repo gitweb.git > /dev/null
+	git clone base_repo gitweb.git &> /dev/null
 	cd base_repo
 	rm -rf .git
 	cd ..
