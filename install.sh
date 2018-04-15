@@ -4,6 +4,9 @@
 # CD to the source directory
 source_dir=$(cd -P -- "$(dirname -- "$0")" && pwd -P)
 
+# Remove any entries in known hosts for local host - useful for testing
+ssh-keygen -f ~/.ssh/known_hosts -R localhost &> /dev/null
+
 # Remove other keys from the keys directory
 rm -f ./keys/*
 
@@ -30,7 +33,15 @@ then
 elif [ ! -d gitweb.git ];
 then
 	echo "  . . . creating base repo from source directory"
-	git clone --bare base_repo gitweb.git &> /dev/null
+	cd base_repo
+	git init > /dev/null
+	git add . > /dev/null
+	git commit -m "initial commit" > /dev/null
+	cd ..
+	git clone base_repo gitweb.git > /dev/null
+	cd base_repo
+	rm -rf .git
+	cd ..
 elif [ ! -f Dockerfile ];
 then
 	echo "ERROR - FATAL - Dockerfile is missing"
@@ -66,6 +77,7 @@ docker build . -t gitweb > /dev/null
 echo "  . . . starting the container"
 docker run --name gitweb -p 22:2222 -p 443:4443 -v $source_dir/keys:/gitweb/keys gitweb > /dev/null &
 sleep 1
+rm -rf gitweb.git
 echo "done!"
 
 echo " All set! "

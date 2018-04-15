@@ -14,7 +14,7 @@ WORKDIR /gitweb/
 # Copy the following files into the container
 ## startup script that maintains the container
 ADD startup.sh /gitweb
-## blank repo so we don't have to worry about creating it in the script
+## repo so we don't have to worry about creating it in the script
 ADD gitweb.git /gitweb.git
 
 # Setup source directories
