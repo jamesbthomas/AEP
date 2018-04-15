@@ -21,4 +21,4 @@ This directory gets mapped to a directory inside the container and is used to ad
 The GitWeb server does no security checking. If given more time and had I not been restricted to only scripts, I would have preferred to implement some form of command checking on the scripts that come in such that any script that references certain directories or attempts to make use of certain networking functions would not be run.
 While containerizing the server does provide some of these protections by only exposing two ports and almost immediately binding them to specific services, it would be trivial to completely subvert the server and either destroy the container or deny its services to other users.
 ### Design Issues
-The GitWeb server can only furnish 
+The GitWeb server can quickly run out of space as it currently has no mechanism for cleaning up script outputs. It manages to avoid putting them into the repo, but I haven't been able to get gitweb.sh to clear the html files that git server creates.
