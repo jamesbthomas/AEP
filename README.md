@@ -5,7 +5,7 @@ Thomas Technical Prompt Submission
 To start the container that hosts the GitWeb server, run the install.sh script located in this directory.
 
 ## Install.sh
-This script will check that all of the files the container requires are present in the current directory. If they are not present, it will rebuild the ones it couldn't find.
+This script will check that all of the files the container requires are present in the current directory. If they are not present, it will rebuild the ones it couldn't find. It will also install any necessary packages, build the docker image, and start the container.
 
 ## Dockerfile
 This file contains the specifications for the Docker container, including the parent image, and a set of instructions to run before the container boots. These instructions install necessary packages, create a number of directories for GitWeb to use, setup the SSH server, and copy the base repo and startup script to the container. It also creates and sets up the user account for the GitWeb server and specifies which ports on the local machine to make available to the container.
